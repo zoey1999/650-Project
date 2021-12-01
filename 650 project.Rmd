@@ -20,38 +20,93 @@ dat$bmi_quan<-ifelse(dat$BMI<21.58, 1,
                             ifelse(21.58<=dat$BMI & dat$BMI<25.98,2,
                                    ifelse(25.98<=dat$BMI & dat$BMI<30.89, 3,
                                    ifelse(dat$BMI>=30.89,4,NA))))
-# install.packages("gtsummary")
-library(gtsummary)
-dat2 <- dat %>% select(BPSysAve,BMI, bmi_quan)
-dat2 %>% tbl_summary(by = bmi_quan)
+dat2 <- dat %>% select(BPSysAve,BMI,bmi_quan,Age,Gender,Race1,Education,DirectChol,Diabetes,PhysActiveDays,SmokeNow,TotChol,AlcoholYear)
+
+#target_pop: nonmissing outsome and POI
+target_pop<-dat2[!is.na(dat2$BPSysAve)&!is.na(dat2$BMI),]#8487
+#Complete cases for all variables
+comp_cases<-target_pop[complete.cases(target_pop),]
 ```
 
 ```{r}
-model_1<-lm(BPSysAve~BMI,data=dat)
+#install.packages("qwraps2")
+library("qwraps2")
+orig_opt <- options()$qwraps2_markup
+options(qwraps2_markup = "markdown")
+summarytab<-
+  list("Average Systolic Blood Pressure" =
+       list("mean (sd)" = ~ qwraps2::mean_sd(BPSysAve,na_rm=TRUE)),
+       "BMI" =
+       list("mean (sd)" = ~ qwraps2::mean_sd(BMI,na_rm=TRUE)),
+       "Age" =
+       list("min"       = ~ min(Age),
+            "max"       = ~ max(Age),
+            "mean (sd)" = ~ qwraps2::mean_sd(Age,na_rm=TRUE)),
+       "Gender" =
+       list("Male" = ~ qwraps2::n_perc0(Gender == "male",na_rm=TRUE),
+            "Female"  = ~ qwraps2::n_perc0(Gender == "female",na_rm=TRUE)),
+       "Race" =
+       list("White" = ~ qwraps2::n_perc0(Race1 == "White",na_rm=TRUE),
+            "Black"  = ~ qwraps2::n_perc0(Race1 == "Black",na_rm=TRUE),
+            "Mexican"= ~ qwraps2::n_perc0(Race1 == "Mexican",na_rm=TRUE),
+            "Hispanic"= ~ qwraps2::n_perc0(Race1 == "Hispanic",na_rm=TRUE),
+            "Other" = ~ qwraps2::n_perc0(Race1 == "Other",na_rm=TRUE)),
+        "Eduaction" =
+       list("8th Grade" = ~ qwraps2::n_perc0(Education == "8th Grade",na_rm=TRUE),
+            "9 - 11th Grade"  = ~ qwraps2::n_perc0(Education == "9 - 11th Grade",na_rm=TRUE),
+            "High School"= ~ qwraps2::n_perc0(Education == "High School",na_rm=TRUE),
+            "Some College"= ~ qwraps2::n_perc0(Education == "Some College",na_rm=TRUE),
+            "College Grad" = ~ qwraps2::n_perc0(Education == "College Grad",na_rm=TRUE),
+            "Missing" = ~ qwraps2::n_perc0(is.na(Education))),
+       "HDL Cholesterol" =
+       list("mean (sd)" = ~ qwraps2::mean_sd(DirectChol,na_rm=TRUE)),
+       "Diabetes" =
+       list("Has diabetes" = ~ qwraps2::n_perc0(Diabetes == "Yes",na_rm=TRUE),
+            "Doesn't have diabetes"  = ~ qwraps2::n_perc0(Diabetes == "No",na_rm=TRUE),
+            "Missing" = ~ qwraps2::n_perc0(is.na(Diabetes))),
+       "Physical Activity Days " =
+       list("mean (sd)" = ~ qwraps2::mean_sd(PhysActiveDays,na_rm=TRUE)),
+        "Smoking" =
+       list("Smoker" = ~ qwraps2::n_perc0(SmokeNow == "Yes",na_rm=TRUE),
+            "Nonsmoker"  = ~ qwraps2::n_perc0(SmokeNow == "No",na_rm=TRUE),
+            "Missing" = ~ qwraps2::n_perc0(is.na(SmokeNow))),
+        "Alcohol use per year"=
+            list("mean (sd)" = ~ qwraps2::mean_sd(AlcoholYear,na_rm=TRUE))
+       )
+#only for those with Systolic Blood Pressure 
+overall<-summary_table(comp_cases,summarytab)
+bmi_quan<-summary_table(comp_cases,summarytab, by=c("bmi_quan"))
+comp_tab<-cbind(overall,bmi_quan)
+print(comp_tab,
+      rtitle = "Summary Statistics For Complete Cases",
+      cnames = c("Overall", "BMI Quartile 1", "BMI Quartile 2", "BMI Quartile 3","BMI Quartile 4"))
+```
+```{r}
+#for target population
+overall_t<-summary_table(target_pop,summarytab)
+bmi_quan_t<-summary_table(target_pop,summarytab, by=c("bmi_quan"))
+comp_tab_t<-cbind(overall_t,bmi_quan_t)
+print(comp_tab_t,
+      rtitle = "Summary Statistics For Complete Cases",
+      cnames = c("Overall", "BMI Quartile 1", "BMI Quartile 2", "BMI Quartile 3","BMI Quartile 4"))
+```
+
+```{r}
+##Just Outcome and POI
+model_1<-lm(BPSysAve~BMI,data=comp_cases)
 summary(model_1)
-
-plot_model(model_1,type="pred",show.data = TRUE)
-plot_model(model_1,type="diag",show.data = TRUE)
-
 ```
 
 ```{r}
 #I added the other covariates in groups, in a sequential pattern
-dat3 <- dat %>% select(BPSysAve,BMI, bmi_quan,Age,Gender,Race1,Education)
-dat3 %>% tbl_summary(by = bmi_quan)
 #Demographic
-model_2<-lm(BPSysAve~BMI+Gender+Race1+Education+Age,data=dat)
+model_2<-lm(BPSysAve~BMI+Gender+Race1+Education+Age,data=comp_cases)
 summary(model_2)
-
-plot_model(model_2,type="diag",show.data = TRUE)
 ```
 
 ```{r}
-#health variables:TotChol+Diabetes+PhysActive+SmokeNow
-dat4 <- dat %>% select(BPSysAve,Age, BMI, bmi_quan,Age,Gender,Race1,Education,TotChol,Diabetes,PhysActive,SmokeNow)
-dat4 %>% tbl_summary(by = bmi_quan)%>% add_p()%>%add_overall() %>%add_n()
-
-model_3<-lm(BPSysAve~BMI+Age+Gender+Race1+Education+TotChol+Diabetes+PhysActive+SmokeNow,data=dat)
+#health variables:DirectChol+Diabetes+PhysActive+SmokeNow
+model_3<-lm(BPSysAve~BMI+Age+Gender+Race1+Education+DirectChol+Diabetes+PhysActiveDays+SmokeNow+AlcoholYear,data=comp_cases)
 summary(model_3)
 
 plot_model(model_3,type="diag",show.data = TRUE)
@@ -59,9 +114,44 @@ plot_model(model_3,type="diag",show.data = TRUE)
 
 ```{r}
 #interaction terms: I know that total cholesteral tends to increase with age and there might be an interaction there. Also, I think age and sex might have an interaction (need to see if literature agrees)
+# Age*gender
+# gender*cholesterol
+# alcohol*diabetes: neither are significant so not included
+# BMI*race
+# Diabetes*cholesterol
+comp_cases %>%
+     ggplot(aes(x=BMI, 
+               y=BPSysAve, 
+               color=Race1))+
+     geom_smooth(method="lm")+geom_point()
 
-model_4<-lm(BPSysAve~BMI+Age+Gender+Race1+Education+TotChol+Diabetes+PhysActive+SmokeNow+Age*Gender+Age*TotChol,data=dat)
+comp_cases %>%
+     ggplot(aes(x=DirectChol, 
+               y=BPSysAve, 
+               color=Diabetes))+
+     geom_smooth(method="lm")+geom_point()
+
+comp_cases %>%
+     ggplot(aes(x=DirectChol, 
+               y=BPSysAve, 
+               color=Gender))+
+     geom_smooth(method="lm")+geom_point()
+
+comp_cases %>%
+     ggplot(aes(x=Age, 
+               y=BPSysAve, 
+               color=Gender))+
+     geom_smooth(method="lm")+geom_point()
+```
+
+
+```{r}
+model_4<-lm(BPSysAve~BMI+Age+Gender+Race1+Education+DirectChol+Diabetes+PhysActiveDays+AlcoholYear+SmokeNow+Age*Gender+Gender*DirectChol+BMI*Race1+DirectChol*Diabetes,data=comp_cases)
 summary(model_4)
+
+plot_model(model_4,type="diag",show.data = TRUE)
 ```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+#partial regression plots

@@ -25,7 +25,7 @@ dat2 <- dat %>% select(BPSysAve,BMI,bmi_quan,Age,Gender,Race1,Education,DirectCh
 #target_pop: nonmissing outsome and POI
 target_pop<-dat2[!is.na(dat2$BPSysAve)&!is.na(dat2$BMI),]#8487
 #Complete cases for all variables
-comp_cases<-target_pop[complete.cases(target_pop),]
+comp_cases<-target_pop[complete.cases(target_pop),]#1276
 ```
 
 ```{r}
@@ -64,7 +64,7 @@ summarytab<-
        list("Has diabetes" = ~ qwraps2::n_perc0(Diabetes == "Yes",na_rm=TRUE),
             "Doesn't have diabetes"  = ~ qwraps2::n_perc0(Diabetes == "No",na_rm=TRUE),
             "Missing" = ~ qwraps2::n_perc0(is.na(Diabetes))),
-       "Physical Activity Days " =
+       "Physical Activity " =
        list("mean (sd)" = ~ qwraps2::mean_sd(PhysActiveDays,na_rm=TRUE)),
         "Smoking" =
        list("Smoker" = ~ qwraps2::n_perc0(SmokeNow == "Yes",na_rm=TRUE),
@@ -105,7 +105,7 @@ summary(model_2)
 ```
 
 ```{r}
-#health variables:DirectChol+Diabetes+PhysActive+SmokeNow
+#health variables:DirectChol+Diabetes+PhysActiveDays+SmokeNow
 model_3<-lm(BPSysAve~BMI+Age+Gender+Race1+Education+DirectChol+Diabetes+PhysActiveDays+SmokeNow+AlcoholYear,data=comp_cases)
 summary(model_3)
 
@@ -141,15 +141,19 @@ interaction.plot(x.factor = comp_cases$Gender,
                  trace.factor = comp_cases$Race1,
                  response = comp_cases$BPSysAve)
 
-interaction.plot(x.factor = comp_cases$PhysActiveDays, 
-                 trace.factor = comp_cases$Gender,
+interaction.plot(x.factor = comp_cases$Race1, 
+                 trace.factor = comp_cases$Education,
                  response = comp_cases$BPSysAve)
 ```
 
 
 ```{r}
-model_4<-lm(BPSysAve~BMI+Age+Gender+Race1+Education+DirectChol+Diabetes+PhysActiveDays+AlcoholYear+SmokeNow+Age*Gender+BMI*Race1+DirectChol*Diabetes+Gender*Race1,data=comp_cases)
-summary(model_4)
+model_final<-lm(BPSysAve~BMI+
+                  Age+Gender+Race1+Education+
+                  DirectChol+Diabetes+PhysActiveDays+AlcoholYear+SmokeNow+
+                  Age*Gender+BMI*Race1+DirectChol*Diabetes+Gender*Race1+Race1*Education+AlcoholYear*Diabetes,
+                data=comp_cases)
+summary(model_final)
 
 plot_model(model_4,type="diag",show.data = TRUE)
 ```
@@ -160,6 +164,7 @@ Note that the `echo = FALSE` parameter was added to the code chunk to prevent pr
 m.h = hatvalues(model_4)
 Hmisc::describe(m.h)
 
+max(m.h)
 m.h[which(m.h>0.5)]#high
 m.h[which(m.h>0.2)]#moderate
 ```
@@ -178,6 +183,11 @@ plot(model_4, which=4); abline(h=4/n,lty=2)
 plot(m.dffits); 
 plot(m.covratio); abline(1+3*p/n,0); abline(1-3*p/n,0)
 olsrr::ols_plot_dfbetas(model_4)
+```
+```{r}
+#Compared the complete cases to the target population
+model_pop<-lm(BPSysAve~BMI+Age+Gender+Race1+Education+DirectChol+Diabetes+PhysActiveDays+AlcoholYear+SmokeNow+Age*Gender+BMI*Race1+DirectChol*Diabetes+Gender*Race1+Race1*Education,data=target_pop)
+summary(model_pop)
 ```
 
 #partial regression plots

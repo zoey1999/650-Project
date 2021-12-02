@@ -1,0 +1,90 @@
+---
+title: "650 Project"
+author: "Jess"
+date: "11/28/2021"
+output: html_document
+---
+
+### Loading data and preprocessing
+```{r}
+#load packages
+#install.packages('ggplot2','dplyr','tidyverse','readxl','patchwork','lme4','effects',"devtools","emmeans","gridExtra") #install packages
+
+library.list<- c('ggplot2','readxl','dplyr','tidyverse','patchwork','lme4','effects','sjPlot',"emmeans","gridExtra") #load packages
+sapply(library.list, library, character.only=T, quietly=T)
+library(NHANES)
+#----
+dat<-NHANES
+head(dat)
+quantile(dat$BMI, na.rm = TRUE)
+dat$bmi_quan<-ifelse(dat$BMI<21.58, 1,
+                            ifelse(21.58<=dat$BMI & dat$BMI<25.98,2,
+                                   ifelse(25.98<=dat$BMI & dat$BMI<30.89, 3,
+                                   ifelse(dat$BMI>=30.89,4,NA))))
+# install.packages("gtsummary")
+library(gtsummary)
+dat2 <- dat %>% select(BPSysAve,BMI, bmi_quan)
+dat2 %>% tbl_summary(by = bmi_quan)
+```
+
+### Unadjusted analysis (BMI as POI)
+```{r}
+model_0<-lm(BPSysAve~BMI,data=dat)
+summary(model_0)
+```
+
+### Adjusted analysis 
+##### adding some covariates in groups, in a sequential pattern
+```{r}
+#Demographic
+model_1<-lm(BPSysAve~BMI+Gender+Race1+Education+Age,data=dat)
+summary(model_1)
+```
+
+```{r}
+#Health
+model_2<-lm(BPSysAve~BMI+Age+Gender+Race1+Education+DirectChol+PhysActive+SmokeNow,data=dat)
+summary(model_2)
+```
+
+```{r}
+sum(is.na(dat$SmokeNow)) #6789 cause many removing
+sum(is.na(dat$PhysActive))
+sum(is.na(dat$Education))
+sum(is.na(dat$DirectChol))
+```
+
+###  Adjusted analysis with interaction
+```{r}
+#interaction terms: I know that total cholesteral tends to increase with age and there might be an interaction there. Also, I think age and sex might have an interaction (need to see if literature agrees)
+model_3<-lm(BPSysAve~BMI+Age+Gender+Race1+Education+DirectChol+PhysActive+SmokeNow+
+              BMI*Age+BMI*Gender+BMI*Race1+BMI*Education+BMI*DirectChol+BMI*PhysActive+BMI*SmokeNow+
+              Age*Gender+Age*Race1+Age*Education+Age*DirectChol+Age*PhysActive+Age*SmokeNow+
+              Gender*Race1+Gender*Education+Gender*DirectChol+Gender*PhysActive+Gender*SmokeNow+
+              Race1*Education+Race1*DirectChol+Race1*PhysActive+Race1*SmokeNow+
+              Education*DirectChol+Education*PhysActive+Education*SmokeNow+
+              DirectChol*PhysActive+DirectChol*SmokeNow+
+              PhysActive*SmokeNow, data=dat)
+summary(model_3)
+```
+
+```{r}
+#interaction terms: I know that total cholesteral tends to increase with age and there might be an interaction there. Also, I think age and sex might have an interaction (need to see if literature agrees)
+model_4<-lm(BPSysAve~BMI+Age+Gender+Race1+Education+DirectChol+PhysActive+SmokeNow+
+              Age*Gender+Age*Race1+Age*Education+Age*DirectChol+Age*PhysActive+Age*SmokeNow+
+              Gender*Race1+Gender*Education+Gender*DirectChol+Gender*PhysActive+Gender*SmokeNow+
+              Race1*Education+Race1*DirectChol+Race1*PhysActive+Race1*SmokeNow+
+              Education*DirectChol+Education*PhysActive+Education*SmokeNow+
+              DirectChol*PhysActive+DirectChol*SmokeNow+
+              PhysActive*SmokeNow, data=dat)
+summary(model_4)
+```
+
+```{r}
+dat3 %>%
+     ggplot(aes(x=BMI, 
+               y=BPSysAve, 
+               color=Education))+
+     geom_smooth(method="lm")
+```
+

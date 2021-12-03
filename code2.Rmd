@@ -1,0 +1,86 @@
+---
+title: "650 Project"
+author: "Jess"
+date: "11/28/2021"
+output: html_document
+---
+
+### Loading data and preprocessing
+```{r}
+#load packages
+library.list<- c('ggplot2','readxl','dplyr','tidyverse','patchwork','lme4','effects','sjPlot',"emmeans","gridExtra") #load packages
+sapply(library.list, library, character.only=T, quietly=T)
+library(NHANES)
+#----
+dat<-NHANES
+head(dat)
+quantile(dat$BMI, na.rm = TRUE)
+dat$bmi_quan<-ifelse(dat$BMI<21.58, 1,
+                            ifelse(21.58<=dat$BMI & dat$BMI<25.98,2,
+                                   ifelse(25.98<=dat$BMI & dat$BMI<30.89, 3,
+                                   ifelse(dat$BMI>=30.89,4,NA))))
+# install.packages("gtsummary")
+library(gtsummary)
+dat2 <- dat %>% select(BPSysAve,BMI, bmi_quan)
+dat2 %>% tbl_summary(by = bmi_quan)
+```
+
+### Unadjusted analysis (BMI as POI)
+```{r}
+model_0<-lm(BPSysAve~BMI,data=dat)
+summary(model_0)
+```
+
+### Adjusted analysis 
+##### adding some covariates in groups, in a sequential pattern
+```{r}
+#Demographic
+model_1<-lm(BPSysAve~BMI+
+              Age+Gender+Race1+Education,data=dat)
+summary(model_1)
+```
+
+```{r}
+#Health
+model_2<-lm(BPSysAve~BMI+
+              Age+Gender+Race1+Education+
+              PhysActive+Diabetes+SmokeNow+AlcoholYear+DirectChol,data=dat)
+summary(model_2)
+```
+
+###  Adjusted analysis with interaction
+```{r}
+#interaction terms: I know that total cholesteral tends to increase with age and there might be an interaction there. Also, I think age and sex might have an interaction (need to see if literature agrees)
+model_3<-lm(BPSysAve~BMI+
+              Age+Gender+Race1+Education+
+              PhysActive+Diabetes+SmokeNow+AlcoholYear+DirectChol+
+              BMI*Race1 + Age*Gender + Gender*Race1 + Diabetes*DirectChol + Diabetes*AlcoholYear + Race1*DirectChol, data=dat)
+summary(model_3)
+```
+
+##### Plot the interaction effect
+```{r}
+library(interactions)
+#BMI*Race
+interact_plot(model_3, pred = BMI, modx=Race1)
+```
+
+```{r}
+#Age*Gender
+interact_plot(model_3, pred = Age, modx=Gender)
+```
+
+```{r}
+#AlcoholYear*Diabetes
+interact_plot(model_3, pred = AlcoholYear, modx = Diabetes)
+```
+
+```{r}
+#DirectChol*Diabetes
+interact_plot(model_3, pred = DirectChol, modx = Diabetes)
+```
+
+```{r}
+#Race*DirectChol
+interact_plot(model_3, pred = DirectChol, modx = Race1)
+```

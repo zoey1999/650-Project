@@ -7,7 +7,7 @@ output: html_document
 
 ```{r}
 #load packages
-#install.packages('ggplot2','dplyr','tidyverse','readxl','patchwork','lme4','effects',"devtools","emmeans","gridExtra") #install packages
+#install.packages('ggplot2','dplyr','tidyverse','readxl','patchwork','lme4','effects',"devtools","emmeans","gridExtra","lmtest") #install packages
 
 library.list<- c('ggplot2','readxl','dplyr','tidyverse','patchwork','lme4','effects','sjPlot',"emmeans","gridExtra") #load packages
 sapply(library.list, library, character.only=T, quietly=T)
@@ -20,12 +20,12 @@ dat$bmi_quan<-ifelse(dat$BMI<21.58, 1,
                             ifelse(21.58<=dat$BMI & dat$BMI<25.98,2,
                                    ifelse(25.98<=dat$BMI & dat$BMI<30.89, 3,
                                    ifelse(dat$BMI>=30.89,4,NA))))
-dat2 <- dat %>% select(BPSysAve,BMI,bmi_quan,Age,Gender,Race1,Education,DirectChol,Diabetes,PhysActiveDays,SmokeNow,TotChol,AlcoholYear)
+dat2 <- dat[,c("ID","BPSysAve","BMI","bmi_quan","Age","Gender","Race1","Education","DirectChol","Diabetes","PhysActiveDays","SmokeNow","TotChol","AlcoholYear")]
 
 #target_pop: nonmissing outsome and POI
-target_pop<-dat2[!is.na(dat2$BPSysAve)&!is.na(dat2$BMI),]#8487
+target_pop <- dat2[!is.na(dat2$BPSysAve)&!is.na(dat2$BMI),] #8487
 #Complete cases for all variables
-comp_cases<-target_pop[complete.cases(target_pop),]#1276
+comp_cases <- target_pop[complete.cases(target_pop),]
 ```
 
 ```{r}
@@ -64,7 +64,7 @@ summarytab<-
        list("Has diabetes" = ~ qwraps2::n_perc0(Diabetes == "Yes",na_rm=TRUE),
             "Doesn't have diabetes"  = ~ qwraps2::n_perc0(Diabetes == "No",na_rm=TRUE),
             "Missing" = ~ qwraps2::n_perc0(is.na(Diabetes))),
-       "Physical Activity " =
+       "Physical Activity Days " =
        list("mean (sd)" = ~ qwraps2::mean_sd(PhysActiveDays,na_rm=TRUE)),
         "Smoking" =
        list("Smoker" = ~ qwraps2::n_perc0(SmokeNow == "Yes",na_rm=TRUE),
@@ -91,6 +91,7 @@ print(comp_tab_t,
       cnames = c("Overall", "BMI Quartile 1", "BMI Quartile 2", "BMI Quartile 3","BMI Quartile 4"))
 ```
 
+
 ```{r}
 ##Just Outcome and POI
 model_1<-lm(BPSysAve~BMI,data=comp_cases)
@@ -105,7 +106,7 @@ summary(model_2)
 ```
 
 ```{r}
-#health variables:DirectChol+Diabetes+PhysActiveDays+SmokeNow
+#health variables:DirectChol+Diabetes+PhysActive+SmokeNow
 model_3<-lm(BPSysAve~BMI+Age+Gender+Race1+Education+DirectChol+Diabetes+PhysActiveDays+SmokeNow+AlcoholYear,data=comp_cases)
 summary(model_3)
 
@@ -123,13 +124,31 @@ comp_cases %>%
      ggplot(aes(x=BMI, 
                y=BPSysAve, 
                color=Race1))+
-     geom_smooth(method="lm")
+     geom_smooth(method="lm")+geom_point()
 
-# comp_cases %>%
-#      ggplot(aes(x=DirectChol, 
-#                y=BPSysAve, 
-#                color=Diabetes))+
-#      geom_smooth(method="lm")
+comp_cases %>%
+     ggplot(aes(x=DirectChol, 
+               y=BPSysAve, 
+               color=Diabetes))+
+     geom_smooth(method="lm")+geom_point()
+
+comp_cases %>%
+     ggplot(aes(x=DirectChol, 
+               y=BPSysAve, 
+               color=Gender))+
+     geom_smooth(method="lm")+geom_point()
+
+comp_cases %>%
+     ggplot(aes(x=Age, 
+               y=BPSysAve, 
+               color=Gender))+
+     geom_smooth(method="lm")+geom_point()
+
+comp_cases %>%
+     ggplot(aes(x=DirectChol, 
+               y=BPSysAve, 
+               color=Race1))+
+     geom_smooth(method="lm")
 
 comp_cases %>%
      ggplot(aes(x=Age, 
@@ -137,57 +156,140 @@ comp_cases %>%
                color=Gender))+
      geom_smooth(method="lm")
 
-interaction.plot(x.factor = comp_cases$Gender, 
-                 trace.factor = comp_cases$Race1,
-                 response = comp_cases$BPSysAve)
-
-interaction.plot(x.factor = comp_cases$Race1, 
-                 trace.factor = comp_cases$Education,
-                 response = comp_cases$BPSysAve)
+cat_plot(model = model_main, pred = Education, modx = Race1, data = comp_cases)
+cat_plot(model = model_main, pred = Race1, modx = Gender, data = comp_cases)
 ```
-
 
 ```{r}
-model_final<-lm(BPSysAve~BMI+
-                  Age+Gender+Race1+Education+
-                  DirectChol+Diabetes+PhysActiveDays+AlcoholYear+SmokeNow+
-                  Age*Gender+BMI*Race1+DirectChol*Diabetes+Gender*Race1+Race1*Education,
-                data=comp_cases)
-summary(model_final)
+model_4<-lm(BPSysAve ~ BMI + Age + Gender + Race1 + Education + 
+    DirectChol + Diabetes + PhysActiveDays + AlcoholYear + SmokeNow + 
+    Age * Gender + Gender * PhysActiveDays  + BMI * Race1 + DirectChol * 
+    Diabetes +  DirectChol * Race1 + AlcoholYear * Diabetes, data = comp_cases)
+summary(model_4)
 
-plot_model(model_4,type="diag",show.data = TRUE)
+
+model_5<-lm(BPSysAve ~ BMI + Age + Gender + Race1 + Education + 
+    DirectChol + Diabetes + PhysActiveDays + AlcoholYear + SmokeNow, data = comp_cases)
+summary(model_5)
+#plot_model(model_4,type="diag",show.data = TRUE)
+
+#if only consider interaction with significant covariates:
+model_6 <- lm(BPSysAve ~ BMI + Age + Gender + Race1 + Education + 
+    DirectChol + Diabetes + PhysActiveDays + AlcoholYear + SmokeNow + BMI*Race1 + Age*Gender , data = comp_cases)
+summary(model_6)
+#consider model_6 as the main model
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+plots for BMI, confounders and effect modifier:
 ```{r}
-#install.packages("Hmisc")
-m.h = hatvalues(model_4)
-Hmisc::describe(m.h)
+library(patchwork)
+p1 = ggplot(comp_cases, aes(x = Gender)) + geom_bar(fill = "light blue") + labs(y = "numbers", title = "Gender") + theme(plot.title=element_text(hjust=0.5))
 
-max(m.h)
-m.h[which(m.h>0.5)]#high
-m.h[which(m.h>0.2)]#moderate
+p2 = ggplot(comp_cases, aes(x = Race1)) + geom_bar(fill = "light blue") + labs(y = "numbers", title = "Race") + theme(plot.title=element_text(hjust=0.5))
+
+p3 = ggplot(comp_cases, aes(x = Education)) + geom_bar(fill = "light blue") + labs(y = "numbers", title = "Education Level") + theme(plot.title=element_text(hjust=0.5))
+
+p4 = ggplot(comp_cases, aes(x = PhysActiveDays)) + geom_bar(fill = "light blue") + labs(y = "numbers", title = "Physical Activity Days") + theme(plot.title=element_text(hjust=0.5))
+
+p5 = ggplot(comp_cases, aes(x = SmokeNow)) + geom_bar(fill = "light blue") + labs(y = "numbers ", title = "Smoking or not") + theme(plot.title=element_text(hjust=0.5))
+
+p6 = ggplot(comp_cases, aes(x = Age)) + geom_histogram(fill = "light blue", bins = 30) + labs(y = "numbers", title = "Age") + theme(plot.title=element_text(hjust=0.5))
+
+p7 = ggplot(comp_cases, aes(x = AlcoholYear)) + geom_histogram(fill = "light blue", bins = 10) + labs(y = "numbers", title = "Drinking day per year") + theme(plot.title=element_text(hjust=0.5))
+
+p8 = ggplot(comp_cases, aes(x = DirectChol)) + geom_histogram(fill = "light blue", bins = 10) + labs(y = "numbers", title = "Direct HDL") + theme(plot.title=element_text(hjust=0.5))
+
+p9 = ggplot(comp_cases, aes(x = BMI)) + geom_histogram(fill = "light blue", bins = 10) + labs(y = "numbers", title = "BMI") + theme(plot.title=element_text(hjust=0.5))
+
+(p1 + p2 + p3) / (p4 + p5 + p6) / (p7 + p8 + p9)
 ```
+
+Model Diagnostics:
+Check linearity assumption: 
+through partial regression plots, linearity assumption holds
 ```{r}
-#install.packages("olsrr")
-options(width = 70)
-options(warn=-1)
+car::avPlots(model_6)
 
-m.dffits=dffits(model_4)
-m.dfbeta=dfbeta(model_4)
-m.D=cooks.distance(model_4)
-m.covratio=covratio(model_4)
+# check linear relationship between SBP and BMI:
+model_par_1 <- lm(BPSysAve ~ Age + Gender + Race1 + Education + 
+    DirectChol + Diabetes + PhysActiveDays + AlcoholYear + SmokeNow +  Age*Gender , data = comp_cases)
+model_par_2 <- lm(BMI ~ Age + Gender + Race1 + Education + 
+    DirectChol + Diabetes + PhysActiveDays + AlcoholYear + SmokeNow +  Age*Gender , data = comp_cases)
 
-n = nrow(comp_cases); p = model_4$rank
-plot(model_4, which=4); abline(h=4/n,lty=2)
-plot(m.dffits); 
-plot(m.covratio); abline(1+3*p/n,0); abline(1-3*p/n,0)
-olsrr::ols_plot_dfbetas(model_4)
+ggplot(comp_cases, aes(x = model_par_2$residuals, y = model_par_1$residuals)) + geom_point() + geom_smooth(method = lm) + labs( x = "resid.2", y = "resid.1", title = "Partial regression plot between BMI and SBP")  +
+  theme(plot.title = element_text(hjust = 0.5)) 
 ```
+
 ```{r}
-#Compared the complete cases to the target population
-model_pop<-lm(BPSysAve~BMI+Age+Gender+Race1+Education+DirectChol+Diabetes+PhysActiveDays+AlcoholYear+SmokeNow+Age*Gender+BMI*Race1+DirectChol*Diabetes+Gender*Race1+Race1*Education,data=target_pop)
-summary(model_pop)
+library(quantreg)
+m_raw = rq(comp_cases$BPSysAve ~ comp_cases$BMI, tau = seq(0,1,by = 0.25))
+plot(m_raw)
+```
+check independence assumption:
+no significant positive or negative trend for autocorrelation
+```{r}
+lag.plot(m6.res, lag = 1, diag.col = "black", main = "Lag plot", col = "dark red")
+```
+normality test: basically not violated
+as studentized residuals go extreme, those points no longer fit the straight line b/c there
+are quite a lot influencial points with high residual (see in influentialPlot below)
+```{r}
+#residual plot
+comp_cases$m6.res = rstudent(model_6)
+
+p_n1 = ggplot(comp_cases, aes(x = m6.res)) + geom_histogram(bins = 30) + labs(x = "externally studentized residuals", y = "frequency", title = "distribution of  residuals") + theme(plot.title=element_text(hjust=0.5)) 
+#qq plot:
+p_n2 = ggplot(comp_cases, aes(sample = m6.res)) + stat_qq_band() + stat_qq_line() + stat_qq_point() + labs(x = "theoretical quantiles", y = "sample quantiles", title = "QQ plot") + theme(plot.title=element_text(hjust=0.5))
+
+(p_n1+p_n2)
 ```
 
-#partial regression plots
+check equal variance assumption:
+although model 6 didn't pass the bp test, by residual plot we still find homoscadisticity 
+```{r}
+#perform Breusch-Pagan Test: heteroscasticity exists in the model
+#library(lmtest)
+#bptest(model_6)
+#car::spreadLevelPlot(model_6) # suggest a power transformation with -2
+p_eq_var = ggplot() + 
+  geom_point(aes(y = m6.res, x = model_6$fitted.values)) + 
+  labs( x = "Predicted Value", y = "Residuals", title = "Residuals vs. fitted values") + 
+  theme(plot.title = element_text(hjust = 0.5)) 
+p_eq_var
+```
+Or if we claim heteroscasticity and turn for robust standard error and correct t-value and p-value in the model, we find no much difference of explanation from summary()
+```{r}
+library(sandwich)
+library(robustbase)
+summary(model_6)
+coeftest(model_6, vcov = vcovHC(model_6, type = "HC1"))
+```
+
+influence diagnostics:
+```{r}
+library(stats)
+influence.measures(model_6)
+car::influencePlot(model_6, main = "Regression influence plot") # obs 817, 287, 686, 687, 940 contribute most influence
+
+#high leverage points with cutoff: leverage > 0.1
+comp_cases$m6.h = hatvalues(model_6)
+high_lev = m6.h[which(m6.h>0.1)]
+as.data.frame(comp_cases[comp_cases$m6.h > 0.1,])
+
+# obs 287 (ID 56114) has the greatest impact on parameter estimate of model_6
+m6.D=cooks.distance(model_6)
+which.max(m6.D)
+
+# obs (ID 67624) has the most influence on MSE:
+m6.covratio=covratio(model_6)
+which.max(m6.covratio*(1-m6.h))
+
+```
+outlier detection:
+```{r}
+outlier_1 = comp_cases[abs(comp_cases$m6.res)>3,] # 20 obs with extremely high or low sbp
+outlier_2 = comp_cases[abs(comp_cases$m6.res)>4,] # 7 obs with SBP > 190: extreme sbp values
+outlier_1
+outlier_2
+```

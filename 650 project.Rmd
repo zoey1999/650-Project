@@ -151,7 +151,7 @@ interaction.plot(x.factor = comp_cases$Race1,
 model_final<-lm(BPSysAve~BMI+
                   Age+Gender+Race1+Education+
                   DirectChol+Diabetes+PhysActiveDays+AlcoholYear+SmokeNow+
-                  Age*Gender+BMI*Race1+DirectChol*Diabetes+Gender*Race1+Race1*Education+AlcoholYear*Diabetes,
+                  Age*Gender+BMI*Race1+DirectChol*Diabetes+Gender*Race1+Race1*Education,
                 data=comp_cases)
 summary(model_final)
 
